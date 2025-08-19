@@ -5,3 +5,5 @@
 !/wordpress/setup-wordpress.sh
 
 /mysql/log
+
+/nginx/log

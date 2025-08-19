@@ -42,19 +42,17 @@ KIBANA_DASHBOARD_GUIDE.md
 ## Hướng dẫn sử dụng nhanh
 
 1. **Khởi động toàn bộ hệ thống:**
+
    ```sh
    docker-compose up -d
    ```
-2. **Cài đặt WordPress:**
-   ```sh
-   docker-compose exec web bash /var/www/html/setup-wordpress.sh
-   ```
-3. **Truy cập các dịch vụ:**
+
+2. **Truy cập các dịch vụ:**
 
    - WordPress: http://localhost
    - Kibana: http://0.0.0.0:5601
 
-4. **Backup & logrotate:**
+3. **Backup & logrotate:**
 
    - Được tự động hóa qua cronjob (xem `scripts/cron.daily`).
    - Có thể chạy backup thủ công:
@@ -62,7 +60,7 @@ KIBANA_DASHBOARD_GUIDE.md
      bash scripts/backup.sh /duongdan/backup
      ```
 
-5. **Tạo dashboard trên Kibana:**
+4. **Tạo dashboard trên Kibana:**
    - Xem hướng dẫn chi tiết trong `KIBANA_DASHBOARD_GUIDE.md`.
 
 ## Lưu ý
