@@ -1,0 +1,7 @@
+/backup
+
+/wordpress/*
+!/wordpress/README.md
+!/wordpress/setup-wordpress.sh
+
+/mysql/log

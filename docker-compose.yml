@@ -1,0 +1,132 @@
+services:
+  maintenance:
+    image: debian:stable-slim
+    container_name: maintenance-cronjob
+    volumes:
+      - ./scripts/cron.daily:/scripts/cron.daily:ro
+      - ./scripts/entrypoint-cronjob.sh:/entrypoint-cronjob.sh:ro
+      - ./nginx/logrotate-nginx.conf:/etc/logrotate-nginx.conf:ro
+      - ./mysql/logrotate-mysql.conf:/etc/logrotate-mysql.conf:ro
+      - ./nginx/log:/var/log/nginx
+      - ./mysql/log:/var/lib/mysql
+      - ./wordpress:/var/www/html
+      - ./scripts/backup.sh:/scripts/backup.sh:ro
+      - ./backup:/backup
+    entrypoint: ["/bin/bash", "/entrypoint-cronjob.sh"]
+    environment:
+      - WORDPRESS_DB_USER=${WORDPRESS_DB_USER}
+      - WORDPRESS_DB_PASSWORD=${WORDPRESS_DB_PASSWORD}
+      - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    depends_on:
+      - nginx
+      - db
+      - elasticsearch
+    command: []
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/log:/var/log/nginx
+      - ./wordpress:/var/www/html:ro
+    depends_on:
+      - web
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  web:
+    image: wordpress:php8.2-fpm
+    container_name: wordpress-web
+    environment:
+      - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST}
+      - WORDPRESS_DB_USER=${WORDPRESS_DB_USER}
+      - WORDPRESS_DB_PASSWORD=${WORDPRESS_DB_PASSWORD}
+      - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME}
+    volumes:
+      - ./wordpress:/var/www/html
+      - ./wordpress/setup-wordpress.sh:/docker-entrypoint-initwp.d/setup-wordpress.sh:ro
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db:
+    image: mysql:8.0
+    container_name: mysql-db
+    environment:
+      - MYSQL_DATABASE=${WORDPRESS_DB_NAME}
+      - MYSQL_USER=${WORDPRESS_DB_USER}
+      - MYSQL_PASSWORD=${WORDPRESS_DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    command: --general-log=1 --general-log-file=/var/lib/mysql/general.log --slow-query-log=1 --slow-query-log-file=/var/lib/mysql/slow.log --log-error=/var/lib/mysql/error.log
+    volumes:
+      - mysqldata:/var/lib/mysql
+      - ./mysql/log:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=${ES_JAVA_OPTS}
+      - xpack.security.enabled=false
+    ports:
+      - "${ELASTIC_PORT}:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION}
+    container_name: kibana
+    ports:
+      - "${KIBANA_PORT}:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:${ELASTIC_PORT}
+      - xpack.security.enabled=false
+    depends_on:
+      - elasticsearch
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:${ELASTIC_VERSION}
+    container_name: logstash
+    volumes:
+      - ./logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./nginx/log:/nginxlog:ro
+      - ./mysql/log:/mysqllog:ro
+    ports:
+      - "${LOGSTASH_PORT}:5044"
+    depends_on:
+      - elasticsearch
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9600/_node/pipelines"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+volumes:
+  esdata:
+  mysqldata:

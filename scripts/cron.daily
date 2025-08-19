@@ -1,0 +1,9 @@
+#!/bin/bash
+# Cron script: logrotate & backup daily
+
+# Logrotate Nginx
+/usr/sbin/logrotate -f /etc/logrotate-nginx.conf
+# Logrotate MySQL
+/usr/sbin/logrotate -f /etc/logrotate-mysql.conf
+# Backup MySQL & Elasticsearch
+/bin/bash /scripts/backup.sh /backup
